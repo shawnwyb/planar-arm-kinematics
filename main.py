@@ -1,39 +1,47 @@
 import numpy as np
 from se3 import SE3
 
-def build_rotation_matrix(q):
-    R = np.array([[np.cos(q), -np.sin(q), 0],
-                  [np.sin(q), np.cos(q), 0],
-                  [0, 0, 1]])
-    return R
+def rotation_about_z(angle_radians):
+    rotation_matrix = np.array([
+        [np.cos(angle_radians), -np.sin(angle_radians), 0],
+        [np.sin(angle_radians), np.cos(angle_radians), 0],
+        [0, 0, 1],
+    ])
+    return rotation_matrix
 
-def forward_kinematics(q1, q2, q3):
-    q1 = np.deg2rad(q1)
-    q2 = np.deg2rad(q2)
-    q3 = np.deg2rad(q3)
+def forward_kinematics(q1_degrees, q2_degrees, q3_degrees):
+    q1_radians = np.deg2rad(q1_degrees)
+    q2_radians = np.deg2rad(q2_degrees)
+    q3_radians = np.deg2rad(q3_degrees)
 
-    R_F1 = build_rotation_matrix(q1)
-    R_F2 = build_rotation_matrix(q2)
-    R_F3 = build_rotation_matrix(q3)
+    rotation_base_from_f1 = rotation_about_z(q1_radians)
+    rotation_f1_from_f2 = rotation_about_z(q2_radians)
+    rotation_f2_from_f3 = rotation_about_z(q3_radians)
 
-    t_F1 = np.array([2*np.cos(q1), 2*np.sin(q1), 0])
-    t_F2 = np.array([np.cos(q2), np.sin(q2), 0])
-    t_F3 = np.array([np.cos(q3), np.sin(q3), 0])
+    joint2_position_in_base = np.array([
+        2 * np.cos(q1_radians), 2 * np.sin(q1_radians), 0
+    ])
+    joint3_position_in_f1 = np.array([
+        np.cos(q2_radians), np.sin(q2_radians), 0
+    ])
+    tool_position_in_f2 = np.array([
+        np.cos(q3_radians), np.sin(q3_radians), 0
+    ])
 
-    Tbase_F1 = SE3(R_F1, t_F1)
-    TF1_F2 = SE3(R_F2, t_F2)
-    TF2_F3 = SE3(R_F3, t_F3)
+    transform_base_from_f1 = SE3(rotation_base_from_f1, joint2_position_in_base)
+    transform_f1_from_f2 = SE3(rotation_f1_from_f2, joint3_position_in_f1)
+    transform_f2_from_f3 = SE3(rotation_f2_from_f3, tool_position_in_f2)
 
-    Tbase_F2 = Tbase_F1.compose(TF1_F2)
-    Tbase_F3 = Tbase_F2.compose(TF2_F3)
+    transform_base_from_f2 = transform_base_from_f1.compose(transform_f1_from_f2)
+    transform_base_from_f3 = transform_base_from_f2.compose(transform_f2_from_f3)
 
-    positions = [
+    positions_in_base = [
         np.array([0, 0, 0]),
-        Tbase_F1.T[:3, 3],
-        Tbase_F2.T[:3, 3],
-        Tbase_F3.T[:3, 3],
+        transform_base_from_f1.T[:3, 3],
+        transform_base_from_f2.T[:3, 3],
+        transform_base_from_f3.T[:3, 3],
     ]
-    return positions, Tbase_F3
+    return positions_in_base, transform_base_from_f3
 
 def inverse_kinematics(tool_position, tool_direction_degrees,
                        link1_length, link2_length, link3_length):
