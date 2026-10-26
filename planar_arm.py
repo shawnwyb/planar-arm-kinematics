@@ -4,10 +4,16 @@ from se3 import SE3
 
 
 class PlanarArm:
-    """Three-link arm moving in the xy-plane.
+    """Represent a three-link arm with revolute joints in the xy-plane.
 
-    F1, F2, and F3 are at J2, J3, and the tool. Joint angles are in degrees,
-    positive counterclockwise, and measured relative to the previous link.
+    J1 is at the base origin; F1, F2, and F3 have origins at J2, J3, and
+    the tool. Each frame's x-axis points along its link. Link lengths must
+    be positive. Joint angles are in degrees, measured from the preceding
+    link, and positive counterclockwise about the z-axis.
+
+    forward_kinematics() finds joint positions and the tool pose from joint
+    angles. inverse_kinematics() finds joint angles for a tool position and
+    direction expressed in the base frame.
     """
 
     def __init__(self, link1_length, link2_length, link3_length):
@@ -29,6 +35,7 @@ class PlanarArm:
         return rotation_matrix
 
     def forward_kinematics(self, q1_degrees, q2_degrees, q3_degrees):
+        """Return J1-to-tool positions and the tool pose in the base frame."""
         q1_radians = np.deg2rad(q1_degrees)
         q2_radians = np.deg2rad(q2_degrees)
         q3_radians = np.deg2rad(q3_degrees)
