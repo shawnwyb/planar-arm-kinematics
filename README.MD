@@ -1,7 +1,9 @@
 # Planar Arm Kinematics
 
 A three-link planar arm with SE(3)-based forward kinematics and geometric
-and numerical inverse kinematics.
+and numerical inverse kinematics. An interactive Python visualizer lets you
+change joint angles, explore both geometric solutions, and play back the
+numerical solver's actual angle guesses.
 
 ## Setup
 
