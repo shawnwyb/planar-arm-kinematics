@@ -5,6 +5,8 @@ and numerical inverse kinematics. An interactive Python visualizer lets you
 change joint angles, explore both geometric solutions, and play back the
 numerical solver's actual angle guesses.
 
+<img width="640" height="400" alt="overview" src="https://github.com/user-attachments/assets/94234a48-a062-4a19-b711-f74305cf3aa3" />
+
 ## Setup
 
 ```bash
