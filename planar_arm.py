@@ -182,11 +182,13 @@ class PlanarArm:
         ])
 
     def numerical_inverse_kinematics(
-        self, tool_position, tool_direction_degrees, initial_angles_degrees
+        self, tool_position, tool_direction_degrees, initial_angles_degrees,
+        *, angle_history=None,
     ):
         """Use damped Jacobian steps to find one angle triple in degrees.
 
         Return None if the search does not converge from the initial angles.
+        Optionally append each evaluated angle triple in degrees to angle_history.
         """
         target_position = np.asarray(tool_position, dtype=float)
         initial_angles = np.asarray(initial_angles_degrees, dtype=float)
@@ -205,16 +207,20 @@ class PlanarArm:
         position_tolerance = 1e-9
         direction_tolerance = 1e-9
 
-        for _ in range(maximum_iterations):
+        for iteration in range(maximum_iterations + 1):
             positions, _ = self.forward_kinematics(*np.rad2deg(angles))
             position_error = target_position - positions[-1][:2]
             direction_error = (
                 target_direction - sum(angles) + np.pi
             ) % (2 * np.pi) - np.pi
+            solution = tuple(((np.rad2deg(angles) + 180) % 360 - 180).tolist())
+            if angle_history is not None:
+                angle_history.append(solution)
             if (np.linalg.norm(position_error) < position_tolerance
                     and abs(direction_error) < direction_tolerance):
-                solution = (np.rad2deg(angles) + 180) % 360 - 180
-                return tuple(solution.tolist())
+                return solution
+            if iteration == maximum_iterations:
+                break
 
             error = np.array([*position_error, direction_error])
             jacobian = self.jacobian(*np.rad2deg(angles))

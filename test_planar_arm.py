@@ -115,6 +115,16 @@ class InverseKinematicsTests(unittest.TestCase):
             self.arm.numerical_inverse_kinematics((5, 0), 0, (30, -60, 30))
         )
 
+    def test_history_records_initial_guess_and_final_solution(self):
+        history = []
+        solution = self.arm.numerical_inverse_kinematics(
+            (3, 1), 0, (30, -60, 30), angle_history=history
+        )
+        self.assertIsNotNone(solution)
+        self.assertGreater(len(history), 1)
+        self.assertEqual(history[0], (30, -60, 30))
+        self.assertEqual(history[-1], solution)
+
 
 if __name__ == "__main__":
     unittest.main()
