@@ -12,8 +12,8 @@ class PlanarArm:
     link, and positive counterclockwise about the z-axis.
 
     forward_kinematics() finds joint positions and the tool pose from joint
-    angles. inverse_kinematics() finds joint angles for a tool position and
-    direction expressed in the base frame.
+    angles. geometric_inverse_kinematics() finds up to two angle solutions
+    for a tool pose; numerical_inverse_kinematics() searches from one guess.
     """
 
     def __init__(self, link1_length, link2_length, link3_length):
@@ -75,7 +75,7 @@ class PlanarArm:
         ]
         return positions_in_base, transform_base_from_f3
 
-    def inverse_kinematics(self, tool_position, tool_direction_degrees):
+    def geometric_inverse_kinematics(self, tool_position, tool_direction_degrees):
         """Return zero, one, or two joint-angle triples in degrees.
 
         Angles are in [-180, 180). When J3 is at the base and links 1 and 2
@@ -159,3 +159,71 @@ class PlanarArm:
             solutions.append(tuple(angles_degrees.tolist()))
 
         return solutions
+
+    def jacobian(self, q1_degrees, q2_degrees, q3_degrees):
+        """Return changes in (x, y, tool angle) per radian of joint motion."""
+        q1, q2, q3 = np.deg2rad([q1_degrees, q2_degrees, q3_degrees])
+        link2_direction = q1 + q2
+        tool_direction = link2_direction + q3
+
+        link1_x_effect = -self.link1_length * np.sin(q1)
+        link1_y_effect = self.link1_length * np.cos(q1)
+        link2_x_effect = -self.link2_length * np.sin(link2_direction)
+        link2_y_effect = self.link2_length * np.cos(link2_direction)
+        link3_x_effect = -self.link3_length * np.sin(tool_direction)
+        link3_y_effect = self.link3_length * np.cos(tool_direction)
+
+        return np.array([
+            [link1_x_effect + link2_x_effect + link3_x_effect,
+             link2_x_effect + link3_x_effect, link3_x_effect],
+            [link1_y_effect + link2_y_effect + link3_y_effect,
+             link2_y_effect + link3_y_effect, link3_y_effect],
+            [1.0, 1.0, 1.0],
+        ])
+
+    def numerical_inverse_kinematics(
+        self, tool_position, tool_direction_degrees, initial_angles_degrees
+    ):
+        """Use damped Jacobian steps to find one angle triple in degrees.
+
+        Return None if the search does not converge from the initial angles.
+        """
+        target_position = np.asarray(tool_position, dtype=float)
+        initial_angles = np.asarray(initial_angles_degrees, dtype=float)
+        if target_position.shape != (2,) or not np.all(np.isfinite(target_position)):
+            raise ValueError("tool_position must contain two finite coordinates")
+        if not np.isfinite(tool_direction_degrees):
+            raise ValueError("tool_direction_degrees must be finite")
+        if initial_angles.shape != (3,) or not np.all(np.isfinite(initial_angles)):
+            raise ValueError("initial_angles_degrees must contain three finite angles")
+
+        target_direction = np.deg2rad(tool_direction_degrees)
+        angles = np.deg2rad(initial_angles)
+        damping = 0.05
+        maximum_step = 0.5
+        maximum_iterations = 200
+        position_tolerance = 1e-9
+        direction_tolerance = 1e-9
+
+        for _ in range(maximum_iterations):
+            positions, _ = self.forward_kinematics(*np.rad2deg(angles))
+            position_error = target_position - positions[-1][:2]
+            direction_error = (
+                target_direction - sum(angles) + np.pi
+            ) % (2 * np.pi) - np.pi
+            if (np.linalg.norm(position_error) < position_tolerance
+                    and abs(direction_error) < direction_tolerance):
+                solution = (np.rad2deg(angles) + 180) % 360 - 180
+                return tuple(solution.tolist())
+
+            error = np.array([*position_error, direction_error])
+            jacobian = self.jacobian(*np.rad2deg(angles))
+            joint_step = jacobian.T @ np.linalg.solve(
+                jacobian @ jacobian.T + damping**2 * np.eye(3), error
+            )
+            step_size = np.linalg.norm(joint_step)
+            if step_size > maximum_step:
+                joint_step *= maximum_step / step_size
+            angles += joint_step
+
+        return None

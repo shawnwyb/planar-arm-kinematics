@@ -1,7 +1,7 @@
 # Planar Arm Kinematics
 
 A three-link planar arm with SE(3)-based forward kinematics and geometric
-inverse kinematics.
+and numerical inverse kinematics.
 
 ## Setup
 
@@ -33,9 +33,11 @@ from planar_arm import PlanarArm
 
 arm = PlanarArm(2, 1, 1)
 positions, tool_pose = arm.forward_kinematics(0, 90, -90)
-solutions = arm.inverse_kinematics((3, 1), 0)
+solutions = arm.geometric_inverse_kinematics((3, 1), 0)
+numerical_solution = arm.numerical_inverse_kinematics((3, 1), 0, (30, -60, 30))
 ```
 
 Angles are in degrees. Forward kinematics returns positions from the base
-through the tool and the tool's SE(3) pose. Inverse kinematics returns up to
-two angle solutions for a reachable target pose.
+through the tool and the tool's SE(3) pose. Geometric inverse kinematics returns
+up to two angle solutions. Numerical inverse kinematics starts from an angle
+guess and returns one solution, or `None` if it does not converge.
